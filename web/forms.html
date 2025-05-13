@@ -1,0 +1,90 @@
+<html>
+    <head>
+        <title>Simple DB App</title>
+        <script>
+            function submitForm(form, method) {
+                var vals = [];
+                
+                for (var n=0; n < form.elements.length; n++) {
+                    if(form.elements[n].className === 'toSubmit') {
+                        vals.push(form.elements[n].name + "=" + form.elements[n].value);
+                    }
+                }
+                
+                window.parent.document.getElementById('resultsFrame').contentWindow.location = method + "?" + vals.join("&");
+            }
+        </script>
+    </head>
+    
+    <body>
+        <table width="100%" height="100%"  border='2'>
+            <tr>
+			<td>
+                    <h2>Check If Property Exists</h2>
+                    <form>
+                        Location: <input type="text" class="toSubmit" name="location_a" /><br />
+                        Propery type: <input type="text" class="toSubmit" name="property_type_a" /><br />						 
+                        <input type="button" name="button" value="Update" onClick="submitForm(this.form, 'checkIfPropertyExists')" />
+                    </form>
+                </td>
+				
+                <td>
+                    <h2>High Value Host</h2>
+                    <form>
+                        min price: <input type="text" class="toSubmit" name="min_price" /><br />
+                        min rating: <input type="text" class="toSubmit" name="min_rating" /><br />
+						min avg price host: <input type="text" class="toSubmit" name="min_avg_price" /><br /> 
+						min avg rating host: <input type="text" class="toSubmit" name="min_avg_rating" /><br />
+                        <input type="button" name="button" value="Update" onClick="submitForm(this.form, 'highValueHost')" />
+                    </form>
+                </td>
+
+                <td>
+                    <h2>Find Common Properties And Guests</h2>
+                    <form>
+                        guestIdA: <input type="text" class="toSubmit" name="guestIdA" /><br />
+                        guestIdB: <input type="text" class="toSubmit" name="guestIdB" /><br />
+                        <input type="button" name="button" value="Search" onClick="submitForm(this.form, 'findCommonPropertiesAndGuests')" />
+                    </form>
+                </td>
+            </tr>
+            <tr>
+			    <td>
+                    <h2>Count Words For Properties</h2>
+                    <form>
+						N: <input type="text" class="toSubmit" name="n" /><br />
+						M: <input type="text" class="toSubmit" name="m" /><br />
+                        <input type="button" name="button" value="Search" onClick="submitForm(this.form, 'countWordsForProperties')" />
+                    </form>
+                </td>
+                <td>
+                    <h2>Top N Hosts</h2>
+                    <form>
+                        N: <input type="text" class="toSubmit" name="n" /><br />
+                        <input type="button" name="button" value="Search" onClick="submitForm(this.form, 'selectTopNhosts')" />
+                    </form>
+                </td>
+            </tr>
+			<tr>
+				<td>
+                    <h2>Find Matching Properties</h2>
+                    <form>
+                        Guest Id: <input type="text" class="toSubmit" name="guestId" /><br />
+                        <input type="button" name="button" value="Search" onClick="submitForm(this.form, 'findMatchingProperties')" />
+                    </form>
+                </td>
+				<td>
+                    <h2>Recommend Property</h2>
+                    <form>
+                        Guest Id: <input type="text" class="toSubmit" name="guestId" /><br />
+						City: <input type="text" class="toSubmit" name="city" /><br />
+						Amenities: <input type="text" class="toSubmit" name="amenities" /><br />
+						max price: <input type="text" class="toSubmit" name="max_price" /><br />
+						min rating: <input type="text" class="toSubmit" name="min_rating" /><br />
+                        <input type="button" name="button" value="Search" onClick="submitForm(this.form, 'recommendProperty')" />
+                    </form>
+                </td>
+			</tr>
+        </table>
+    </body>
+</html>
