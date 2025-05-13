@@ -27,7 +27,7 @@ def checkIfPropertyExists(location_a, property_type_a):
     cursor = connection.cursor()
     
     ### YOUR CODE HERE
-    # Πάρε όλα τα property_id με τοποθεσία location_a
+    # Παίρνω όλα τα property_id με τοποθεσία location_a
     sql1 = """ SELECT property_id FROM property WHERE location = %s """          
     cursor.execute(sql1, (location_a,))
     location_props = set(row[0] for row in cursor.fetchall())
@@ -37,7 +37,7 @@ def checkIfPropertyExists(location_a, property_type_a):
         connection.close()
         return [("no",)]
 
-    # Πάρε το type_id για το property_type_a
+    # Παίρνω το type_id για το property_type_a
     sql2 = """ SELECT type_id FROM propertytype WHERE type_name = %s """ 
     cursor.execute(sql2, (property_type_a,))
     result = cursor.fetchone()
@@ -49,7 +49,7 @@ def checkIfPropertyExists(location_a, property_type_a):
 
     type_id = result[0]
 
-    # Πάρε όλα τα property_id που έχουν τον συγκεκριμένο type_id
+    # Παίρνω όλα τα property_id που έχουν τον συγκεκριμένο type_id
     sql_final = """ SELECT property_id FROM property_has_type WHERE type_id = %s """
     cursor.execute(sql_final, (type_id,))
     type_props = set(row[0] for row in cursor.fetchall())
@@ -69,34 +69,33 @@ def selectTopNhosts(N):
     cursor = db.cursor()
     
     ### YOUR CODE HERE
-    try:
-        # I fetch the property_id of all the properties in location_a
-        sql1 = """SELECT type_id FROM propertytype"""          
-        cursor.execute(sql1,)
-        property_types = set(row[0] for row in cursor.fetchall())
 
-        result = []
-        # AS ... is not necessary but for clarity in the code it's used
-        for type in property_types:
-            sql3 = """SELECT type_name FROM propertytype WHERE type_id = %s"""          
-            cursor.execute(sql3, (type,))
-            type_name = cursor.fetchone()
-            name = type_name[0]
+    # Παίρνω όλα τα type_id από τον πίνακα property_has_type
+    sql1 = """ SELECT type_id FROM propertytype """          
+    cursor.execute(sql1,)
+    all_type_ids = set(row[0] for row in cursor.fetchall())
 
-            # I fetch the first N hosts_ids from properties of type, after i group them and order them from most to least frequent
-            sql2 = f""" SELECT host_id, COUNT(*) AS num_properties FROM property WHERE property_id = ANY (SELECT property_id FROM property_has_type WHERE type_id = %s) GROUP BY host_id ORDER BY num_properties DESC LIMIT {N} """
-            cursor.execute(sql2, (type,))
-            for row in cursor.fetchall():
-                host_id, num_properties = row
-                result.append((name, host_id, num_properties))
+    result = []
+    for type in all_type_ids:
+        # Παίρνω το όνομα κάθε τύπου (type_id -> type_name)
+        sql2 = """ SELECT type_name FROM propertytype WHERE type_id = %s """          
+        cursor.execute(sql2, (type,))
+        type_name = cursor.fetchone()
+        name = type_name[0]
 
-        header = [("Property ID", "Host ID", "Property Count")]
+        if not name:
+            continue
 
-    except:
-        db.rollback()
-        print("")
-        return ["no"]
+        # Ερώτημα για να πάρω τον αριθμό των properties για κάθε host για το συγκεκριμένο type_id
+        sql3 = f""" SELECT host_id, COUNT(*) AS num_properties FROM property WHERE property_id = ANY (SELECT property_id FROM property_has_type WHERE type_id = %s) GROUP BY host_id ORDER BY num_properties DESC LIMIT {N} """
+        cursor.execute(sql3, (type,))
+        top_hosts = cursor.fetchall()
 
+        # Προσθέτω τα αποτελέσματα
+        for host_id, count in top_hosts:
+            result.append((name, host_id, count))
+
+    header = [("Property ID", "Host ID", "Property Count")]
 
     db.close()
     return header + result
