@@ -1,12 +1,10 @@
 # ----- CONFIGURE YOUR EDITOR TO USE 4 SPACES PER TAB ----- #
 import pymysql
 from collections import Counter
-from collections import defaultdict
 import re
 import random
 import json
 import uuid
-import datetime
 
 # Example usage:
 db_config = {
@@ -460,7 +458,6 @@ def recommendProperty(guest_id, desired_city, desired_amenities, max_price, min_
         if isinstance(desired_amenities, str):
             desired_amenities = json.loads(desired_amenities)
 
-        
         # Βήμα 1: Βρες όλα τα properties που πληρούν τα βασικά κριτήρια
         sql1 = """ SELECT property_id, name, rating, price FROM property WHERE location = %s AND price <= %s AND rating >= %s """
         cursor.execute(sql1, (desired_city, max_price, min_rating))
@@ -512,16 +509,12 @@ def recommendProperty(guest_id, desired_city, desired_amenities, max_price, min_
             wishlist_name = f"Recommended_{uuid.uuid4().hex}"
             privacy = random.choice(['Public', 'Private'])
 
-            cursor.execute(
-                "INSERT INTO wishlist (guest_id, name, privacy) VALUES (%s, %s, %s)",
-                (guest_id, wishlist_name, privacy)
-            )
+            sql4 = """ INSERT INTO wishlist (guest_id, name, privacy) VALUES (%s, %s, %s) """
+            cursor.execute(sql4, (guest_id, wishlist_name, privacy))
             wishlist_id = cursor.lastrowid or random.randint(100000, 999999)
 
-            cursor.execute(
-                "INSERT INTO wishlist_has_property (wishlist_id, property_id) VALUES (%s, %s)",
-                (wishlist_id, best_property[0])
-            )
+            sql5 = """ INSERT INTO wishlist_has_property (wishlist_id, property_id) VALUES (%s, %s) """
+            cursor.execute(sql5, (wishlist_id, best_property[0]))
 
             connection.commit()
             insert_status = "ok"
