@@ -1,10 +1,12 @@
 # ----- CONFIGURE YOUR EDITOR TO USE 4 SPACES PER TAB ----- #
 import pymysql
 from collections import Counter
+from collections import defaultdict
 import re
 import random
 import json
 import uuid
+import datetime
 
 # Example usage:
 db_config = {
@@ -453,110 +455,91 @@ def highValueHost(min_price_booking, min_rating_review, min_avg_price_host, min_
 def recommendProperty(guest_id, desired_city, desired_amenities, max_price, min_rating):
     connection = pymysql.connect(**db_config)
     cursor = connection.cursor()
-    
-    ### YOUR CODE HERE
+
     try:
         if isinstance(desired_amenities, str):
             desired_amenities = json.loads(desired_amenities)
-                    
-        max_price_f = float(max_price)
-        min_rating_f = float(min_rating)
-        
-        # I fetch the property_id of all the properties in location_a
-        sql1 = """SELECT property_id, rating FROM property WHERE location = %s AND price <= %s AND rating >= %s"""          
-        cursor.execute(sql1, (desired_city, max_price_f, min_rating_f,))
-        city_properties = cursor.fetchall()
-        city_properties_dict = {row[0]: float(row[1]) for row in city_properties}
-        
-        if not city_properties_dict:
-            return ["not found"]
-        
-        # I fetch the property_id of all the properties in location_a
-        sql2 = """SELECT * FROM amenity"""          
-        cursor.execute(sql2, )
-        all_amenities=cursor.fetchall()
-        
-        amenities_dict= {row[0]: row[1] for row in all_amenities}
-        weighted_amenities = {row[1]: round(random.random(), 2) for row in all_amenities}
-                
-        
-        placeholders = ','.join(['%s'] * len(city_properties))
-        sql3 = f"""SELECT property_id, amenity_id FROM property_has_amenity WHERE property_id IN ({placeholders})""" 
-        cursor.execute(sql3, tuple(city_properties_dict.keys()),)
-        prop_amenities = cursor.fetchall()
-        
-        from collections import defaultdict
-        property_amenities = defaultdict(list)
-        for pid, aid in prop_amenities:
-            amenity_name_1 = amenities_dict.get(aid)
-            if amenity_name_1:  # Skip if None
-                property_amenities[pid].append(amenity_name_1)
- 
-              
-            
-        property_scores = []
-        
-        for property_id, amenity_list in property_amenities.items():
-            amenity_score = 0.0
-            for amenity in amenity_list:
-                if amenity is None:
-                    continue  # skip invalid
-                
-                factor = float(desired_amenities.get(amenity, 0))
-                weight = weighted_amenities.get(amenity, 0)
-                amenity_score += factor * weight
-        
-            
-            amenity_score = round(amenity_score, 2)
-            rating = city_properties_dict[property_id]
-            total_score = round(amenity_score * 0.6 + rating * 0.4, 2)
-            property_scores.append((property_id, total_score))
-            #total score με το rating   
-        
-        # Βρες το ακίνητο με την υψηλότερη βαθμολογία
-        if property_scores:
-            # Ταξινόμησε για να φέρεις το καλύτερο στην κορυφή
-            best_property_id, best_score = max(property_scores, key=lambda x: x[1])
 
-            
-            # 6. Δημιουργία νέας wishlist
+        
+        # Βήμα 1: Βρες όλα τα properties που πληρούν τα βασικά κριτήρια
+        sql1 = """ SELECT property_id, name, rating, price FROM property WHERE location = %s AND price <= %s AND rating >= %s """
+        cursor.execute(sql1, (desired_city, max_price, min_rating))
+        properties = cursor.fetchall()
+
+        if not properties:
+            return [("No matching properties found.",)]
+
+        # Βήμα 2: Αντιστοίχισε όνομα παροχής με id
+        amenity_weights = desired_amenities.copy()
+        amenity_ids = {}
+        for amenity_name in amenity_weights.keys():
+            sql2 = """ SELECT amenity_id FROM amenity WHERE amenity_name = %s """
+            cursor.execute(sql2, (amenity_name,))
+            row = cursor.fetchone()
+            if row:
+                amenity_ids[row[0]] = amenity_weights[amenity_name]
+
+        if not amenity_ids:
+            return [("No valid amenities found.",)]
+
+        # Βήμα 3: Υπολογισμός σκορ για κάθε κατάλυμα
+        best_property = None
+        best_score = -1
+
+        for prop in properties:
+            prop_id, prop_name, prop_rating, prop_price = prop
+
+            # Βρες τα amenities του καταλύματος
+            sql3 = """ SELECT amenity_id FROM property_has_amenity WHERE property_id = %s """
+            cursor.execute(sql3, (prop_id,))
+            prop_amenities = [row[0] for row in cursor.fetchall()]
+
+            # Υπολογισμός amenity_score (σταθμισμένο άθροισμα)
+            amenity_score = sum(amenity_ids[aid] for aid in prop_amenities if aid in amenity_ids)
+
+            # Συνδυασμένο σκορ (γραμμικός συνδυασμός)
+            combined_score = (amenity_score * 0.6) + (float(prop_rating) * 0.4)
+
+            if combined_score > best_score:
+                best_score = combined_score
+                best_property = (prop_id, prop_name)
+
+        if best_property is None:
+            return [("No suitable property found.",)]
+
+        # Βήμα 4: Δημιουργία νέας wishlist
         try:
-            wishlist_name = f"Recommended-{uuid.uuid4().hex[:6]}"
-            privacy = random.choice(['Private', 'Public'])
+            wishlist_name = f"Recommended_{uuid.uuid4().hex}"
+            privacy = random.choice(['Public', 'Private'])
 
             cursor.execute(
                 "INSERT INTO wishlist (guest_id, name, privacy) VALUES (%s, %s, %s)",
                 (guest_id, wishlist_name, privacy)
             )
-            wishlist_id = cursor.lastrowid
+            wishlist_id = cursor.lastrowid or random.randint(100000, 999999)
 
             cursor.execute(
                 "INSERT INTO wishlist_has_property (wishlist_id, property_id) VALUES (%s, %s)",
-                (wishlist_id, best_property_id)
+                (wishlist_id, best_property[0])
             )
 
             connection.commit()
             insert_status = "ok"
             
-        except Exception as insert_err:
+
+        except Exception as insert_error:
             connection.rollback()
-            print("Σφάλμα κατά το insert:", insert_err)
             insert_status = "not ok"
+        
+        header  = [("Best Property id", "Best Property Name", "Insertion Status"),]
+        results = [(best_property[0], best_property[1], insert_status),]
 
-        # 7. Όνομα property
-        cursor.execute("SELECT name FROM property WHERE property_id = %s", (best_property_id,))
-        result = cursor.fetchone()
-
-        if result:
-            best_property_name = result[0]
-            return [(best_property_id, best_property_name, insert_status)]
-        else:
-            return [("no result", "Name not found", insert_status)]
-
-
-    except:
+    except Exception as e:
         connection.rollback()
-        return ["no"]
+        return [("Error",), (str(e),)]
 
     finally:
+        cursor.close()
         connection.close()
+
+    return header + results
